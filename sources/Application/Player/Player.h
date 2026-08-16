@@ -110,8 +110,9 @@ protected:
 	void updateChainPos(int position,int channel,int hop=0) ;
 	void updatePhrasePos(int pos,int channel) ;
 	void playCursorPosition(int channel) ;
-    int  getChannelHop(int channel,int pos) ;
-	void moveToNextStep() ;
+    void getChannelHop(int channel, int pos, int *dest);
+    void hopIfNecessary(int channel, int pos);
+    void moveToNextStep() ;
 	void moveToNextPhrase(int channel,int hop=-1) ;
 	void moveToNextChain(int channel,int hop) ;
 

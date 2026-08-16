@@ -168,6 +168,14 @@ void Player::Start(PlayMode mode, bool forceSongMode) {
             break;
         }
 
+        // Allow hops in initial position
+        for (int i = 0; i < 8; i++) {
+            if (mixer_->IsChannelPlaying(i)) {
+                int pos = viewData_->phrasePlayPos_[i];
+                hopIfNecessary(i, pos);
+            }
+        }
+
         ProcessCommands();
 
         startTime_ = mixer_->GetAudioOut()->GetStreamTime();
@@ -879,18 +887,56 @@ void Player::playCursorPosition(int channel) {
     }
 }
 
-int Player::getChannelHop(int channel, int pos) {
-
+// Stores GOTO parameters and hop in `dest` (in that order).
+void Player::getChannelHop(int channel, int pos, int *dest) {
+  
     int phrase = viewData_->currentPlayPhrase_[channel];
-    FourCC cc = viewData_->song_->phrase_->cmd1_[phrase * 16 + pos];
-    if (cc == I_CMD_HOP) {
-        return (viewData_->song_->phrase_->param1_[phrase * 16 + pos]) & 0xF;
+    Phrase *song_phrase = viewData_->song_->phrase_;
+    FourCC cc[] = {song_phrase->cmd1_[phrase * 16 + pos],
+		 song_phrase->cmd2_[phrase * 16 + pos]};
+    int param[] = {song_phrase->param1_[phrase * 16 + pos],
+    song_phrase->param2_[phrase * 16 + pos]};
+
+    int shift = (I_CMD_HOP && cc[1] == I_CMD_GOTO) ? 1 : 0;
+    int i[] = {shift, (shift+1)%2};
+
+    if(cc[i[0]] == I_CMD_GOTO) {
+      dest[i[0]] = param[i[0]];
+      if(cc[i[1]] == I_CMD_HOP)
+	dest[i[1]] = param[i[1]] & 0xF;
+    } else {
+          for(int i = 0; i < 2; i++)
+              if (cc[i] == I_CMD_HOP) {
+                  dest[1] = param[i] & 0xF;
+                  return;
+              }
+    }   
+}
+
+void Player::hopIfNecessary(int channel, int pos) {
+
+    // Check whether a goto/hop is required.
+    int dest[2] = {-1, -1};
+    getChannelHop(channel, pos, dest);
+
+    // Extract parameters
+    ushort songPos = dest[0] >> 8;
+    ushort chainPos = dest[0] & 0xF;
+    int hop = dest[1];
+
+    // If we have a valid GOTO, then update song position
+    // appropriately.
+    if ((dest[0] + 1) && isPlayable(songPos, channel, chainPos)) {
+        updateSongPos(songPos, channel, chainPos, hop);
+    } else if (hop >= 0) {
+        if (mode_ != PM_PHRASE) {
+            moveToNextPhrase(channel, hop);
+        } else {
+            updatePhrasePos(hop, channel);
+        }
+    } else {
+        updatePhrasePos(pos, channel);
     }
-    cc = viewData_->song_->phrase_->cmd2_[phrase * 16 + pos];
-    if (cc == I_CMD_HOP) {
-        return (viewData_->song_->phrase_->param2_[phrase * 16 + pos]) & 0xF;
-    }
-  return -1;
 }
 
 /********************************************************
@@ -933,27 +979,16 @@ void Player::moveToNextStep() {
 
             if (gs->TriggerChannel(i)) { // If groove says it is time to play
                 if (viewData_->currentPlayPhrase_[i] != 0xFF) {
-                    int pos = (viewData_->phrasePlayPos_[i]) + 1;
-                    if (pos != 16) {
-                        int hop = getChannelHop(i, pos);
-                        if (hop >= 0) {
-                            if (mode_ != PM_PHRASE) {
-                                moveToNextPhrase(i, hop);
-                            } else {
-                                updatePhrasePos(hop, i);
-                            }
-                        } else {
-                            updatePhrasePos(pos, i);
-                        }
-                    } else { // HOP.. something should be done so that if
-                             // next chain has a hop on pos zero, it is
-                             // effective
+                    int pos = viewData_->phrasePlayPos_[i] + 1;
+                    if (pos == 16) {
                         if (mode_ != PM_PHRASE) {
                             moveToNextPhrase(i);
                         } else {
                             updatePhrasePos(0, i);
                         }
+                        pos = 0;
                     }
+                    hopIfNecessary(i, pos);
                 }
             }
         }

@@ -129,6 +129,11 @@ static inline std::string* getHelpLegend(FourCC command) {
 			result[1].assign("immediately");
 			result[2].assign("");
 			break;
+        case I_CMD_GOTO:
+            result[0].assign("GOTO:aabb");
+            result[1].assign("go to phrase aa of chain");
+            result[2].assign("bb in song view");
+			break;
 		default:
 
 			result[0].assign("");
