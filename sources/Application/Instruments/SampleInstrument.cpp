@@ -166,9 +166,10 @@ void SampleInstrument::OnStart() {
 	tableState_.Reset() ;
 } ;
 
-bool SampleInstrument::Start(int channel,unsigned char midinote,bool cleanstart)
-{
-	// Look if we're dirty & need to update this instrument's data
+bool SampleInstrument::Start(int channel, unsigned char midinote, int flags) {
+    bool cleanstart = flags & 1;
+
+    // Look if we're dirty & need to update this instrument's data
 
   if (dirty_) 
   {
@@ -273,6 +274,7 @@ bool SampleInstrument::Start(int channel,unsigned char midinote,bool cleanstart)
                  };
                  rp->baseSpeed_ = fl2fp((freq * length) / driverRate);
                  rp->rendFirst_ = rp->rendLoopStart_;
+
                  if (cleanstart) {
                      rp->position_ = float(rp->rendFirst_);
                  }

@@ -39,7 +39,11 @@ void MidiInstrument::OnStart() {
 	tableState_.Reset() ;
 } ;
 
-bool MidiInstrument::Start(int c,unsigned char note,bool retrigger) {
+bool MidiInstrument::Start(int c, unsigned char note, int flags) {
+    bool muted = flags & 2;
+
+    if (muted)
+        return false;
 
 	first_[c]=true ;
 	lastNote_[c]=note ;
@@ -70,7 +74,7 @@ bool MidiInstrument::Start(int c,unsigned char note,bool retrigger) {
 	retrig_=false ;
 
 	return true ;
-} ;
+};
 
 void MidiInstrument::Stop(int c) {
 

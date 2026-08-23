@@ -29,7 +29,9 @@ void PlayerChannel::StartInstrument(I_Instrument *instr,unsigned char note,bool 
    if (instr_) {
       StopInstrument() ;
    }
-   if (instr->Start(index_,note,trigger)) { // note could be refused coz it's out of the keymap
+   /* The note will not trigger if it is out the keymap or, in the case of a
+      MIDI instrument, if the channel is muted. */
+   if (instr->Start(index_,note, trigger | (muted_ << 1))) {
 	   instr_=instr ;
    } else {
 	   instr_=0 ;

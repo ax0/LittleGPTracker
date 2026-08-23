@@ -23,8 +23,10 @@ public:
 
 	  virtual bool Init()=0 ;
 
-	  // Start & stop the instument
-      virtual bool Start(int channel,unsigned char note,bool retrigger=true)=0 ;
+      // Start & stop the instument
+      // flags & 1 indicates retriggers (default)
+      // flags & 2 indicates muting (i.e. no trigger)
+      virtual bool Start(int channel,unsigned char note,int flags=1)=0 ;
       virtual void Stop(int channel)=0 ;
 
 	  // Engine playback  start callback
