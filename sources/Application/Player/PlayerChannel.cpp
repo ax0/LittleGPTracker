@@ -48,7 +48,8 @@ void PlayerChannel::StopInstrument() {
 bool PlayerChannel::Render(fixed *buffer,int samplecount) {
    if (instr_) {
      bool tableSlice=SyncMaster::GetInstance()->TableSlice() ;
-     bool status=instr_->Render(index_,buffer,samplecount,tableSlice) ;
+     bool status = instr_->Render(index_, buffer, samplecount,
+                                  tableSlice | (muted_ << 1));
      if (status && !muted_) {
          // Apply HPF if enabled
          if (hpfMode_ != 0) {

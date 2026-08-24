@@ -42,11 +42,14 @@ void MidiInstrument::OnStart() {
 bool MidiInstrument::Start(int c, unsigned char note, int flags) {
     bool muted = flags & 2;
 
-    if (muted)
+    if (muted) {
+        muted_[c] = true;
         return false;
+    }
 
-	first_[c]=true ;
-	lastNote_[c]=note ;
+    first_[c] = true;
+    muted_[c] = false;
+    lastNote_[c]=note ;
 
 	Variable *v=FindVariable(MIP_CHANNEL) ;
 	int channel=v->GetInt() ;
@@ -77,7 +80,9 @@ bool MidiInstrument::Start(int c, unsigned char note, int flags) {
 };
 
 void MidiInstrument::Stop(int c) {
-
+    if (muted_[c])
+        return;
+  
 	Variable *v=FindVariable(MIP_CHANNEL) ;
 	int channel=v->GetInt() ;
 
@@ -95,13 +100,22 @@ void MidiInstrument::SetChannel(int channel) {
 	v->SetInt(channel) ;
 } ;
 
-bool MidiInstrument::Render(int channel,fixed *buffer,int size,bool updateTick) {
+bool MidiInstrument::Render(int channel, fixed *buffer, int size, int flags) {
+    bool mute = flags & 2;
+  
+	if(mute && !muted_[channel])
+	  {
+	    Stop(channel);
+	    muted_[channel]++;
+	    return false;
+	  }
 
 	// We do it here so we have the opportunity to send some command before
 
 	Variable *v=FindVariable(MIP_CHANNEL) ;
 	int mchannel=v->GetInt() ;
-	if (first_[channel]) {
+
+    if (first_[channel]) {
 
 		// send note
 
@@ -114,7 +128,8 @@ bool MidiInstrument::Render(int channel,fixed *buffer,int size,bool updateTick) 
 
 		first_[channel]=false ;
 	}
-	if (remainingTicks_>0) {
+
+    if (remainingTicks_>0) {
         remainingTicks_-- ;
         if (remainingTicks_==0) {
 			if (!retrig_) {
@@ -133,7 +148,7 @@ bool MidiInstrument::Render(int channel,fixed *buffer,int size,bool updateTick) 
 			} ;
         } ;
     } ;
-	return false ; 
+    return false;
 };
 
 bool MidiInstrument::IsInitialized() {

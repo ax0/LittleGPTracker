@@ -35,8 +35,10 @@ public:
 
       // size refers to the number of samples
       // should always fill interleaved stereo / 16bit
-      
-      virtual bool Render(int channel,fixed *buffer,int size,bool updateTick)=0 ;
+
+  // flags & 1 indicates 'updateTick'.
+  // flags & 2 indicated muting (i.e. stop notes)
+      virtual bool Render(int channel,fixed *buffer,int size,int flags)=0 ;
 
       virtual bool IsInitialized()=0 ;
 
