@@ -48,26 +48,31 @@ public:
 
 	   virtual int GetTable() ;
 	   virtual bool GetTableAutomation();
-	   virtual void GetTableState(TableSaveState &state) ;	 
-	   virtual void SetTableState(TableSaveState &state) ;	 
+       virtual void GetTableState(TableSaveState &state);
+       virtual void SetTableState(TableSaveState &state);
+       virtual void QueueNote(bool note_on, int channel, unsigned char note,
+                              unsigned char velocity);
+       virtual void SetVolume(int channel, unsigned char volume);
+       virtual void SetCC(int channel, unsigned char id, unsigned char value);
+       virtual void SetPRG(int channel, unsigned char id);
 
-	  // external parameter list
-	  
-	  void SetChannel(int i);
- 	  
- private:
-	  char name_[20] ;  // Instrument name
-	  int lastNote_[SONG_CHANNEL_COUNT] ; 
-	  int remainingTicks_ ;
-	  bool playing_ ;
-	  bool retrig_ ;
-	  int retrigLoop_ ;
-	  char velocity_;
-	  TableSaveState tableState_ ;
-	  bool first_[SONG_CHANNEL_COUNT] ;
-      bool muted_[SONG_CHANNEL_COUNT];
+       // external parameter list
 
-      static MidiService *svc_;
+       void SetChannel(int i);
+
+     private:
+       char name_[20]; // Instrument name
+       int lastNote_[SONG_CHANNEL_COUNT];
+       int remainingTicks_;
+       bool playing_;
+       bool retrig_;
+       int retrigLoop_;
+       char velocity_;
+       TableSaveState tableState_;
+       bool first_[SONG_CHANNEL_COUNT];
+       bool muted_[SONG_CHANNEL_COUNT];
+
+       static MidiService *svc_;
 } ;
 
 #endif

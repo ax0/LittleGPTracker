@@ -65,11 +65,8 @@ bool MidiInstrument::Start(int c, unsigned char note, int flags) {
 	//	send initial volume for this midi channel
 
 	v=FindVariable(MIP_VOLUME) ;
-	msg.status_=MIDI_CC+channel ;
-	msg.data1_=7 ;
-	msg.data2_ = floor(static_cast<float>(v->GetInt()+0.99)/2) ;
-	svc_->QueueMessage(msg) ;
-
+    unsigned char volume = floor(static_cast<float>(v->GetInt() + 0.99) / 2);
+    SetVolume(c, volume);
 
 	// store initial velocity
 	velocity_ = msg.data2_;
@@ -86,12 +83,8 @@ void MidiInstrument::Stop(int c) {
 	Variable *v=FindVariable(MIP_CHANNEL) ;
 	int channel=v->GetInt() ;
 
-	MidiMessage msg;
-	msg.status_=MIDI_NOTE_OFF+channel ;
-	msg.data1_=lastNote_[c] ;
-	msg.data2_=0x00 ;
-	svc_->QueueMessage(msg) ;
-	playing_=false ;
+    QueueNote(false, channel, lastNote_[c], 0);
+    playing_=false ;
 
 } ;
 
@@ -117,16 +110,9 @@ bool MidiInstrument::Render(int channel, fixed *buffer, int size, int flags) {
 
     if (first_[channel]) {
 
-		// send note
-
-		MidiMessage msg ;
-
-		msg.status_=MIDI_NOTE_ON+mchannel ;
-		msg.data1_=lastNote_[channel] ;
-		msg.data2_ = velocity_;
-		svc_->QueueMessage(msg) ;
-
-		first_[channel]=false ;
+        // send note
+        QueueNote(true, mchannel, lastNote_[channel], velocity_);
+        first_[channel] = false;
 	}
 
     if (remainingTicks_>0) {
@@ -135,16 +121,9 @@ bool MidiInstrument::Render(int channel, fixed *buffer, int size, int flags) {
 			if (!retrig_) {
 	            Stop(channel) ;
 			} else {
-				MidiMessage msg ;
-				remainingTicks_=retrigLoop_ ;
-				msg.status_=MIDI_NOTE_OFF+mchannel ;
-				msg.data1_=lastNote_[channel] ;
-				msg.data2_=0x00 ;
-				svc_->QueueMessage(msg) ;
-				msg.status_=MIDI_NOTE_ON+mchannel ;
-				msg.data1_=lastNote_[channel] ;
-				msg.data2_=0x7F ;
-				svc_->QueueMessage(msg) ;
+                remainingTicks_ = retrigLoop_;
+                QueueNote(false, mchannel, lastNote_[channel], 0);
+                QueueNote(true, mchannel, lastNote_[channel], velocity_);
 			} ;
         } ;
     } ;
@@ -180,31 +159,23 @@ void MidiInstrument::ProcessCommand(int channel,FourCC cc,ushort value) {
 
 		case I_CMD_VOLM:
 			{
-				MidiMessage msg ;
-				msg.status_=MIDI_CC+mchannel ;
-				msg.data1_= 7;
-				msg.data2_ = floor(static_cast<float>(value / 2));
-				svc_->QueueMessage(msg) ;
+            unsigned char volume = floor(static_cast<float>(value / 2));
+            SetVolume(mchannel, volume);
 			} ;
 			break ;
 
 		case I_CMD_MDCC:
 			{
-				MidiMessage msg ;
-				msg.status_=MIDI_CC+mchannel ;
-				msg.data1_=(value&0x7F00)>>8 ;
-				msg.data2_=(value&0x7F) ;
-				svc_->QueueMessage(msg) ;
+            unsigned char id = (value & 0x7F00) >> 8;
+            unsigned char value = value & 0x7F;
+            SetCC(mchannel, id, value);
 			};
 			break ;
 
 		case I_CMD_MDPG:
 			{
-				MidiMessage msg ;
-				msg.status_=MIDI_PRG+mchannel ;
-				msg.data1_=(value&0x7F) ;
-				msg.data2_=MidiMessage::UNUSED_BYTE ;
-				svc_->QueueMessage(msg) ;
+            unsigned char id = value & 0x7F;
+            SetPRG(mchannel, id);
 			};
 			break ;
 	}
@@ -235,3 +206,35 @@ void MidiInstrument::SetTableState(TableSaveState &state) {
 	memcpy(tableState_.hopCount_,state.hopCount_,sizeof(uchar)*TABLE_STEPS*3) ;
 	memcpy(tableState_.position_,state.position_,sizeof(int)*3) ;
 } ;
+
+void MidiInstrument::QueueNote(bool note_on, int channel, unsigned char note, unsigned char velocity)
+{
+  MidiMessage msg;
+  msg.status_ = channel + note_on ? MIDI_NOTE_ON : MIDI_NOTE_OFF;
+  msg.data1_ = note;
+  msg.data2_ = note_on * velocity;
+
+  svc_->QueueMessage(msg);
+}
+
+void MidiInstrument::SetVolume(int channel, unsigned char volume) {
+  SetCC(channel, 7, volume);
+}
+
+void MidiInstrument::SetCC(int channel, unsigned char id, unsigned char value) {
+  MidiMessage msg;
+  
+  msg.status_=MIDI_CC+channel ;
+	msg.data1_=id ;
+	msg.data2_ = value ;
+	svc_->QueueMessage(msg) ;
+}
+
+void MidiInstrument::SetPRG(int channel, unsigned char id) {
+  MidiMessage msg;
+  
+  msg.status_=MIDI_PRG+channel ;
+	msg.data1_=id ;
+	msg.data2_ = MidiMessage::UNUSED_BYTE ;
+	svc_->QueueMessage(msg) ;
+}
