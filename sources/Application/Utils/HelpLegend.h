@@ -54,8 +54,8 @@ static inline std::string* getHelpLegend(FourCC command) {
         case I_CMD_MCHD:
             result[0].assign("MiDiCHorD:aabb");
 			result[1].assign("send notes aa and bb");
-			result[2].assign("semitones higher than current note");
-			break;		       
+            result[2].assign("semitones higher");
+            break;		       
 		case I_CMD_MDCC:
 			result[0].assign("MiDiCC:aabb");
 			result[1].assign("CC message aa");
