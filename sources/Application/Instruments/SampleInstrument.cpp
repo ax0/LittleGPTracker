@@ -529,7 +529,7 @@ bool SampleInstrument::Render(int channel, fixed *buffer, int size, int flags) {
                 }
             rp->retrigCount_-- ;
 		} ;
-           }
+        }
 
         // Get additional parameters from variables
 
