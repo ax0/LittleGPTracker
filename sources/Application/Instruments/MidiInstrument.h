@@ -62,7 +62,11 @@ public:
 
      private:
        char name_[20]; // Instrument name
-       int lastNote_[SONG_CHANNEL_COUNT];
+       T_SimpleList<unsigned char>
+           *lastNote_[SONG_CHANNEL_COUNT]; // List of played note(s).
+       int rootNote_[SONG_CHANNEL_COUNT];
+       // Keep track of last requested note even if not played. This way,
+       // 'root notes' of chords are stored even when the track is muted.
        int remainingTicks_;
        bool playing_;
        bool retrig_;

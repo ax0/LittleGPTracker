@@ -14,8 +14,11 @@ MidiInstrument::MidiInstrument() {
 		svc_=MidiService::GetInstance() ;
 	};
 
-	Variable *v=new Variable("channel",MIP_CHANNEL,0) ;
-	Insert(v) ;
+    for (int i = 0; i < SONG_CHANNEL_COUNT; i++)
+        lastNote_[i] = new T_SimpleList<unsigned char>(true);
+
+    Variable *v = new Variable("channel", MIP_CHANNEL, 0);
+    Insert(v) ;
 	v=new Variable("note length",MIP_NOTELENGTH,0) ;
 	Insert(v) ;
 	v=new Variable("volume",MIP_VOLUME,255) ;
@@ -40,52 +43,63 @@ void MidiInstrument::OnStart() {
 } ;
 
 bool MidiInstrument::Start(int c, unsigned char note, int flags) {
+    // Take note of requested note regardless of whethere it is sounded.
+    rootNote_[c] = note;
+  
     bool muted = flags & 2;
 
     if (muted) {
         muted_[c] = true;
-        return false;
+        return true;
     }
+
+    // Not muted, thus the note should be queued.
+    unsigned char *last_note = new unsigned char;
+    *last_note = note;
+    
+    lastNote_[c]->Insert(last_note);
 
     first_[c] = true;
     muted_[c] = false;
-    lastNote_[c]=note ;
 
-	Variable *v=FindVariable(MIP_CHANNEL) ;
-	int channel=v->GetInt() ;
+    Variable *v = FindVariable(MIP_CHANNEL);
+    int channel=v->GetInt() ;
 
-	v=FindVariable(MIP_NOTELENGTH) ;
-	remainingTicks_=v->GetInt() ;
+    v = FindVariable(MIP_NOTELENGTH);
+    remainingTicks_=v->GetInt() ;
 	if (remainingTicks_==0) {
         remainingTicks_=-1 ;
     }
 
-	MidiMessage msg ;
+    //	send initial volume for this midi channel
 
-	//	send initial volume for this midi channel
-
-	v=FindVariable(MIP_VOLUME) ;
+    v = FindVariable(MIP_VOLUME);
     unsigned char volume = floor(static_cast<float>(v->GetInt() + 0.99) / 2);
-    SetVolume(c, volume);
+    SetVolume(channel, volume);
 
-	// store initial velocity
-	velocity_ = msg.data2_;
+    // store initial velocity
+    velocity_ = volume;
     playing_=true ;
 	retrig_=false ;
 
-	return true ;
+    return true;
 };
 
 void MidiInstrument::Stop(int c) {
     if (muted_[c])
         return;
-  
-	Variable *v=FindVariable(MIP_CHANNEL) ;
-	int channel=v->GetInt() ;
 
-    QueueNote(false, channel, lastNote_[c], 0);
-    playing_=false ;
+    Variable *v = FindVariable(MIP_CHANNEL);
+    int channel = v->GetInt();
 
+    IteratorPtr<unsigned char> it(lastNote_[c]->GetIterator());
+    for (it->Begin(); !it->IsDone(); it->Next()) {
+        unsigned char note = it->CurrentItem();
+        QueueNote(false, channel, note, 0);
+    }
+
+    lastNote_[c]->Empty();
+    playing_ = false;
 } ;
 
 void MidiInstrument::SetChannel(int channel) {
@@ -95,37 +109,47 @@ void MidiInstrument::SetChannel(int channel) {
 
 bool MidiInstrument::Render(int channel, fixed *buffer, int size, int flags) {
     bool mute = flags & 2;
-  
-	if(mute && !muted_[channel])
-	  {
-	    Stop(channel);
-	    muted_[channel]++;
-	    return false;
-	  }
 
-	// We do it here so we have the opportunity to send some command before
+    if (mute && !muted_[channel]) {
+        Stop(channel);
+	    muted_[channel]=true;
+        return false;
+    } else if (!mute && muted_[channel])
+        muted_[channel] = false;
 
-	Variable *v=FindVariable(MIP_CHANNEL) ;
-	int mchannel=v->GetInt() ;
+    // We do it here so we have the opportunity to send some command before
+
+    Variable *v = FindVariable(MIP_CHANNEL);
+    int mchannel=v->GetInt() ;
 
     if (first_[channel]) {
 
-        // send note
-        QueueNote(true, mchannel, lastNote_[channel], velocity_);
+        // send note(s)
+        IteratorPtr<unsigned char> it(lastNote_[channel]->GetIterator());
+        for (it->Begin(); !it->IsDone(); it->Next()) {
+            unsigned char note = it->CurrentItem();
+            QueueNote(true, mchannel, note, velocity_);
+        }
+
         first_[channel] = false;
-	}
+    }
 
     if (remainingTicks_>0) {
-        remainingTicks_-- ;
-        if (remainingTicks_==0) {
-			if (!retrig_) {
-	            Stop(channel) ;
-			} else {
+        remainingTicks_--;
+        if (remainingTicks_ == 0) {
+            if (!retrig_) {
+                Stop(channel);
+            } else {
                 remainingTicks_ = retrigLoop_;
-                QueueNote(false, mchannel, lastNote_[channel], 0);
-                QueueNote(true, mchannel, lastNote_[channel], velocity_);
-			} ;
-        } ;
+                IteratorPtr<unsigned char> it(
+                    lastNote_[channel]->GetIterator());
+                for (it->Begin(); !it->IsDone(); it->Next()) {
+                    unsigned char note = it->CurrentItem();
+                    QueueNote(false, mchannel, note, 0);
+                    QueueNote(true, mchannel, note, velocity_);
+                }
+            };
+        };
     } ;
     return false;
 };
@@ -134,8 +158,11 @@ bool MidiInstrument::IsInitialized() {
 	return true ; // Always initialised
 } ;
 
-void MidiInstrument::ProcessCommand(int channel,FourCC cc,ushort value) {
-
+void MidiInstrument::ProcessCommand(int channel, FourCC cc, ushort value) {
+    // Do not process commands if muted.
+    if (muted_[channel])
+        return;
+  
 	Variable *v=FindVariable(MIP_CHANNEL) ;
 	int mchannel=v->GetInt() ;
 
@@ -161,29 +188,47 @@ void MidiInstrument::ProcessCommand(int channel,FourCC cc,ushort value) {
 			{
             unsigned char volume = floor(static_cast<float>(value / 2));
             SetVolume(mchannel, volume);
-			} ;
-			break ;
+        }; break;
 
-		case I_CMD_MDCC:
-			{
+        case I_CMD_MCHD: {
+            if (muted_[channel])
+                break;
+
+            int notes[] = {value & 0xFF, value >> 8};
+            for (unsigned int i = 0; i < 2; i++) {
+                unsigned char *chord_tone = new unsigned char;
+                *chord_tone = (rootNote_[channel] + notes[i]) % 128;
+
+                // Make sure note hasn't already been triggered.
+                bool tone_sounded = *chord_tone == rootNote_[channel];
+                IteratorPtr<unsigned char> it(
+                    lastNote_[channel]->GetIterator());
+                for (it->Begin(); !it->IsDone(); it->Next())
+                    tone_sounded |= *chord_tone == it->CurrentItem();
+
+                if (!tone_sounded) {
+                    QueueNote(true, mchannel, *chord_tone, velocity_);
+                    lastNote_[channel]->Insert(chord_tone);
+                }
+            }
+        } break;
+
+        case I_CMD_MDCC: {
             unsigned char id = (value & 0x7F00) >> 8;
-            unsigned char value = value & 0x7F;
+            value &= 0x7F;
             SetCC(mchannel, id, value);
-			};
-			break ;
+        }; break;
 
-		case I_CMD_MDPG:
-			{
+        case I_CMD_MDPG: {
             unsigned char id = value & 0x7F;
             SetPRG(mchannel, id);
-			};
-			break ;
-	}
-} ;
+        }; break;
+        }
+};
 
 const char *MidiInstrument::GetName() {
-	Variable *v=FindVariable(MIP_CHANNEL) ;
-	sprintf(name_,"MIDI CH %2.2d",v->GetInt()+1) ;
+    Variable *v = FindVariable(MIP_CHANNEL);
+    sprintf(name_, "MIDI CH %2.2d", v->GetInt() + 1);
     return name_ ;
 }
 
@@ -209,12 +254,12 @@ void MidiInstrument::SetTableState(TableSaveState &state) {
 
 void MidiInstrument::QueueNote(bool note_on, int channel, unsigned char note, unsigned char velocity)
 {
-  MidiMessage msg;
-  msg.status_ = channel + note_on ? MIDI_NOTE_ON : MIDI_NOTE_OFF;
-  msg.data1_ = note;
-  msg.data2_ = note_on * velocity;
+    MidiMessage msg;
+    msg.status_ = channel + (note_on ? MIDI_NOTE_ON : MIDI_NOTE_OFF);
+    msg.data1_ = note;
+    msg.data2_ = note_on * velocity;
 
-  svc_->QueueMessage(msg);
+    svc_->QueueMessage(msg);
 }
 
 void MidiInstrument::SetVolume(int channel, unsigned char volume) {
