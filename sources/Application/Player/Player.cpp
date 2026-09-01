@@ -673,24 +673,23 @@ bool Player::ProcessChannelCommand(int channel, FourCC cmd, ushort param) {
         }
     } break;
     case I_CMD_HOP: {
-      bool channel_stop = param & 0xFF == 0xFF;
-      if (channel_stop) {
-	// Stop current channel
-	mixer_->StopChannel(channel);
+        bool channel_stop = (param & 0xFF) == 0xFF;
+        if (channel_stop) {
+            // Stop current channel
+            mixer_->StopChannel(channel);
 
-	// If all channels are stopped, stop the song if in song mode.
-	if(GetSequencerMode() == SM_SONG) {
-	bool all_channels_stopped = true;
-	for (int c = 0; c < SONG_CHANNEL_COUNT; c++) {
-	  all_channels_stopped &=
-	    !mixer_->IsChannelPlaying(c);
-	}
-	if (all_channels_stopped) {
-	  Stop();
-	}
-	} else {
-	  liveQueueingMode_[channel] = QM_NONE;
-	}
+            // If all channels are stopped, stop the song if in song mode.
+            if (GetSequencerMode() == SM_SONG) {
+                bool all_channels_stopped = true;
+                for (int c = 0; c < SONG_CHANNEL_COUNT; c++) {
+                    all_channels_stopped &= !mixer_->IsChannelPlaying(c);
+                }
+                if (all_channels_stopped) {
+                    Stop();
+                }
+            } else {
+                liveQueueingMode_[channel] = QM_NONE;
+            }
       }
     } break;
         case I_CMD_STOP: {
