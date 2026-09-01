@@ -516,18 +516,20 @@ bool SampleInstrument::Render(int channel, fixed *buffer, int size, int flags) {
             // Process retrig
 
             if (rp->retrig_) {
-				if (rp->retrigCount_==0) {
-					int ticks=rp->retrigOffset_-rp->retrigLoop_ ;
-					long offset=long(ticks*SyncMaster::GetInstance()->GetTickSampleCount()) ;
-					rp->position_+=offset*fp2fl(rp->speed_) ;
-					if (rp->position_<0) {
-						rp->position_=0 ;
-					} ;
-					rp->retrigCount_=rp->retrigLoop_ ;
-				}
-				rp->retrigCount_-- ;
-			} ;
-        }
+                if (rp->retrigCount_ == 0) {
+                    int ticks = rp->retrigOffset_ - rp->retrigLoop_;
+                    long offset =
+                        long(ticks *
+                             SyncMaster::GetInstance()->GetTickSampleCount());
+                    rp->position_ += offset * fp2fl(rp->speed_);
+                    if (rp->position_ < 0) {
+                        rp->position_ = 0;
+                    };
+                    rp->retrigCount_ = rp->retrigLoop_;
+                }
+            rp->retrigCount_-- ;
+		} ;
+           }
 
         // Get additional parameters from variables
 
