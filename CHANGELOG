@@ -1,4 +1,8 @@
+1.6.0-bacon19
+    Fixed MIDI muting
+    Added MIDI chord command (MCHD)
 
+1.6.0-bacon18
     Migrate W32 to SDL2, removing need for building in vs2008
 
 1.6.0-bacon17
