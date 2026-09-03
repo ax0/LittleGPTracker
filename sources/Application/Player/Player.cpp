@@ -680,6 +680,26 @@ bool Player::ProcessChannelCommand(int channel, FourCC cmd, ushort param) {
             gr->SetGroove(channel, param);
         }
     } break;
+    case I_CMD_HOP: {
+        bool channel_stop = (param & 0xFF) == 0xFF;
+        if (channel_stop) {
+            // Stop current channel
+            mixer_->StopChannel(channel);
+
+            // If all channels are stopped, stop the song if in song mode.
+            if (GetSequencerMode() == SM_SONG) {
+                bool all_channels_stopped = true;
+                for (int c = 0; c < SONG_CHANNEL_COUNT; c++) {
+                    all_channels_stopped &= !mixer_->IsChannelPlaying(c);
+                }
+                if (all_channels_stopped) {
+                    Stop();
+                }
+            } else {
+                liveQueueingMode_[channel] = QM_NONE;
+            }
+      }
+    } break;
         case I_CMD_STOP: {
             switch (GetSequencerMode()) {
             case SM_SONG:
@@ -891,26 +911,28 @@ void Player::playCursorPosition(int channel) {
 void Player::getChannelHop(int channel, int pos, int *dest) {
   
     int phrase = viewData_->currentPlayPhrase_[channel];
+
     Phrase *song_phrase = viewData_->song_->phrase_;
     FourCC cc[] = {song_phrase->cmd1_[phrase * 16 + pos],
 		 song_phrase->cmd2_[phrase * 16 + pos]};
     int param[] = {song_phrase->param1_[phrase * 16 + pos],
     song_phrase->param2_[phrase * 16 + pos]};
 
-    int shift = (I_CMD_HOP && cc[1] == I_CMD_GOTO) ? 1 : 0;
-    int i[] = {shift, (shift+1)%2};
+    int maybe_goto_idx = (cc[0] != I_CMD_GOTO && cc[1] == I_CMD_GOTO) ? 1 : 0;
 
-    if(cc[i[0]] == I_CMD_GOTO) {
-      dest[i[0]] = param[i[0]];
-      if(cc[i[1]] == I_CMD_HOP)
-	dest[i[1]] = param[i[1]] & 0xF;
-    } else {
-          for(int i = 0; i < 2; i++)
-              if (cc[i] == I_CMD_HOP) {
-                  dest[1] = param[i] & 0xF;
-                  return;
-              }
-    }   
+    if (cc[maybe_goto_idx] == I_CMD_GOTO) {
+        dest[0] = param[maybe_goto_idx];
+    }
+
+    // First hop takes precedence.
+    for(int i = 0; i < 2; i++)
+      if (cc[i] == I_CMD_HOP) {
+	int arg = param[i] & 0xFF;
+	if (arg != 0xFF) {
+	  dest[1] = arg & 0xF;
+	  return;
+	}
+      }
 }
 
 void Player::hopIfNecessary(int channel, int pos) {
