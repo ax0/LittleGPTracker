@@ -947,8 +947,8 @@ void Player::hopIfNecessary(int channel, int pos) {
     int hop = dest[1];
 
     // If we have a valid GOTO, then update song position
-    // appropriately.
-    if ((dest[0] + 1) && isPlayable(songPos, channel, chainPos)) {
+    // appropriately provided we are in song or live mode.
+    if ((dest[0] + 1) && isPlayable(songPos, channel, chainPos) && (mode_ == PM_SONG || mode_ == PM_LIVE)) {
         updateSongPos(songPos, channel, chainPos, hop);
     } else if (hop >= 0) {
         if (mode_ != PM_PHRASE) {
