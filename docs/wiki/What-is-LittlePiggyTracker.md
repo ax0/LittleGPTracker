@@ -546,6 +546,11 @@ don't forget trying to combine it with complex hop structure !
 - LPOF is absolute
 - you can't trigger a note with the LPOF, it has to be executed after a sample is playing
 - every time you trigger a sample LPOF is set back to the instrument parameters
+
+## MCHD aabb
+
+Plays the notes aa and bb semitones higher than the last played note (modulo 128). Note that the value `00` is ignored. The chords tones will last as long as the root note, i.e. until another note is played on the channel.
+
 ## MDCC aabb
 
 **Sends a MIDI “continuous control” message. aa is the control number and bb is the value. It will be sent on the MIDI channel of the currently running instrument.**
