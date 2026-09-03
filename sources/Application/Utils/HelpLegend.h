@@ -129,6 +129,16 @@ static inline std::string* getHelpLegend(FourCC command) {
 			result[1].assign("immediately");
 			result[2].assign("");
 			break;
+        case I_CMD_IQUE:
+            result[0].assign("ImmediatelyQUEue:aabb");
+			result[1].assign("Queue range bb on line");
+			result[2].assign("aa immediately");
+			break;
+	case I_CMD_RQUE:
+			result[0].assign("RegularlyQUEue:aabb");
+			result[1].assign("Queue range bb on line");
+			result[2].assign("aa");
+			break;
 		default:
 
 			result[0].assign("");

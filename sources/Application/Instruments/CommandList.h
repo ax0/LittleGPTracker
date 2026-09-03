@@ -34,7 +34,8 @@
 #define I_CMD_FBTN MAKE_FOURCC('F','B','T','N')
 #define I_CMD_SLCE MAKE_FOURCC('S','L','C','E')
 #define I_CMD_STOP MAKE_FOURCC('S','T','O','P')
-
+#define I_CMD_IQUE MAKE_FOURCC('I', 'Q', 'U', 'E')
+#define I_CMD_RQUE MAKE_FOURCC('R','Q','U','E')
 class CommandList {
 public:
 	static FourCC GetNext(FourCC current) ;
