@@ -129,14 +129,20 @@ jobs:
 
   build-aarch64:
     runs-on: ubuntu-22.04-arm
+    container:
+       image: monkeyx/retro_builder:arm64
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4.1.7
       
       - name: Install required libraries
         run: |
-          sudo apt update
-          sudo apt install -y make pkgconf libsdl2-dev libasound2 libasound2-dev python3-pil librtmidi-dev
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+          apt update
+          apt upgrade -y
+          apt install -y make pkgconf libsdl2-dev libasound2 libasound2-dev python3-pil librtmidi-dev unzip zip curl jq
+        env:
+          DEBIAN_FRONTEND: "noninteractive"
 
       - name: Build AARCH64
         working-directory: projects
