@@ -26,12 +26,12 @@ Player::Player() {
 	lastPercentage_=0;
 	retrigAllImmediate_=false;
 	startTime_=0;
-	currentTime_=0;
-
-	for (int i=0;i<SONG_CHANNEL_COUNT;i++) {
+    currentTime_ = 0;
+    for (int i=0;i<SONG_CHANNEL_COUNT;i++) {
 		instrumentOnChannel_[i][0] = ' ';
 		instrumentOnChannel_[i][1] = ' ';
 		instrumentOnChannel_[i][2] = '\0';
+        liveQueueingMode_[i] = QM_NONE;
     }
 }
 
@@ -194,6 +194,7 @@ void Player::Stop() {
 
     for (int i = 0; i < SONG_CHANNEL_COUNT; i++) {
         mixer_->StopChannel(i);
+        liveQueueingMode_[i] = QM_NONE;
     }
     MidiService::GetInstance()->OnPlayerStop();
     mixer_->OnPlayerStop();
@@ -502,7 +503,7 @@ void Player::Update(Observable &o,I_ObservableData *d) {
 			// Don't advance in audition mode
             if (viewData_->playMode_ != PM_AUDITION)
                 moveToNextStep();
-			if (triggerLiveChains_) {
+            if (triggerLiveChains_) {
                 triggerLiveChains();
             }
         }
@@ -713,6 +714,21 @@ bool Player::ProcessChannelCommand(int channel, FourCC cmd, ushort param) {
                 break;
             }
         } break;
+        case I_CMD_IQUE:
+        case I_CMD_RQUE: {
+            // Trigger iff play mode is song mode.
+            if (mode_ != PM_SONG)
+                break;
+            int row = param >> 8;
+            int range_mask = param & 0xFF;
+            QueueingMode mode =
+                cmd == I_CMD_IQUE ? QM_PHRASESTART : QM_CHAINSTART;
+            for (int i = 0; (i < 8) && range_mask; i++) {
+                if (range_mask & 1)
+                    QueueChannel(i, mode, row, 0);
+                range_mask >>= 1;
+            }
+        } break;
         default:
 			break;
         }
@@ -728,7 +744,6 @@ bool Player::ProcessChannelCommand(int channel, FourCC cmd, ushort param) {
 
 void Player::triggerLiveChains() {
 
-    if (mode_ == PM_LIVE) {
         for (int i = 0; i < SONG_CHANNEL_COUNT; i++) {
             if (!(mixer_->IsChannelPlaying(i)) &&
                 ((liveQueueingMode_[i] == QM_CHAINSTART) ||
@@ -743,7 +758,6 @@ void Player::triggerLiveChains() {
                 liveQueueingMode_[i] = QM_NONE;
             }
         }
-    }
 }
 
 /********************************************************
@@ -1035,8 +1049,6 @@ void Player::moveToNextPhrase(int channel, int hop) {
     // has been trigged in immediate mode. In which case we
     // do the action straight away (START/STOP)
 
-    if (mode_==PM_LIVE) {
-
         switch (liveQueueingMode_[channel]) {
         case QM_TICKSTART:
         case QM_PHRASESTART:
@@ -1057,7 +1069,6 @@ void Player::moveToNextPhrase(int channel, int hop) {
         case QM_NONE:
             break;
         }
-    }
 
     // If nothing has been triggered, we need to find what is
     // The next phrase to play
@@ -1111,7 +1122,6 @@ void Player::moveToNextChain(int channel, int hop) {
     // See if current channel has been queued to play something
     // in normal mode
 
-    if (mode_ == PM_LIVE) {
         switch (liveQueueingMode_[channel]) {
 
         case QM_CHAINSTART:
@@ -1137,38 +1147,40 @@ void Player::moveToNextChain(int channel, int hop) {
         case QM_NONE:
             break;
         }
-    }
 
-    // if live mode didn't queue anything, we find the next to play
+        // if (live) mode didn't queue anything, we find the next to play
 
-    if (searchNext) {
-        int pos = (viewData_->songPlayPos_[channel]) + 1;
-        unsigned char *data=viewData_->song_->data_+channel+8*pos;
-    	bool loopBack=(*data==0xFF);
-        // Check if first step of chain contains somethin, if not we loop back
-        if (!loopBack) {
-            unsigned char step = viewData_->song_->chain_->data_[*data * 16];
-            loopBack = (step == 0xFF);
-        }
-        if (loopBack) {
-            data -= 8;
-            pos--;
-            while (pos >= 0) {
-                if (*data == 0xFF) { // we stop searching if there's a blank
-                    break;
-                } else { // Or if first phrase of chain is empty
-                    if (viewData_->song_->chain_->data_[(*data) * 16] == 0xFF) {
-                        break;
-                    }
-                }
-                if (pos != 0)
-                    data -= 8;
-                pos--;
+        if (searchNext) {
+            int pos = (viewData_->songPlayPos_[channel]) + 1;
+            unsigned char *data = viewData_->song_->data_ + channel + 8 * pos;
+            bool loopBack = (*data == 0xFF);
+            // Check if first step of chain contains somethin, if not we loop
+            // back
+            if (!loopBack) {
+                unsigned char step =
+                    viewData_->song_->chain_->data_[*data * 16];
+                loopBack = (step == 0xFF);
             }
-                    pos++;
+            if (loopBack) {
+                data -= 8;
+                pos--;
+                while (pos >= 0) {
+                    if (*data == 0xFF) { // we stop searching if there's a blank
+                        break;
+                    } else { // Or if first phrase of chain is empty
+                        if (viewData_->song_->chain_->data_[(*data) * 16] ==
+                            0xFF) {
+                            break;
+                        }
+                    }
+                    if (pos != 0)
+                        data -= 8;
+                    pos--;
+                }
+                pos++;
+            }
+            nextPos = pos;
         }
-        nextPos = pos;
-    }
     // Do a last check in case we had only one chain and it go destroyed
 
     if (isPlayable(nextPos, channel, chainPosition)) {

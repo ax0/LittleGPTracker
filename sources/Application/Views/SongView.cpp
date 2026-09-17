@@ -1173,9 +1173,10 @@ void SongView::OnPlayerUpdate(PlayerEventType eventType, unsigned int tick) {
             }
         }
 
-        // If in live mode, update queued position
+        // Update queued position if anything is queued up.
+        SequencerMode curMode = player->GetSequencerMode();
 
-        if (player->GetSequencerMode() == SM_LIVE) {
+        if (curMode == SM_LIVE || curMode == SM_SONG) {
             if (player->GetQueueingMode(i) != QM_NONE) {
 
                 if (eventType != PET_STOP) {
