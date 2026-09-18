@@ -128,7 +128,7 @@ jobs:
           files: ./projects/*.zip
 
   build-aarch64:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-26.04-arm
     container:
        image: monkeyx/retro_builder:arm64
     steps:
