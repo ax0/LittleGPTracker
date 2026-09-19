@@ -4,9 +4,9 @@
 DEFINES := \
         -DPLATFORM_$(PLATFORM) \
         -D_64BIT \
-	-DCPP_MEMORY \
-	-D__LINUX_ALSA__ \
-	-D__LINUX_ALSASEQ__ \
+        -DCPP_MEMORY \
+        -D__LINUX_ALSA__ \
+        -D__LINUX_ALSASEQ__ \
         -DSDL2 \
         -DSDLAUDIO \
         -DRTMIDI \
